@@ -1,0 +1,25 @@
+name: Addon Package
+on:
+  release:
+    types: published
+  workflow_dispatch:
+    inputs:
+      suffix:
+        description: 'Suffix of the addon package'
+        required: true
+        type: string
+jobs:
+  release-packaging:
+    if: ${{ github.event_name == 'release' }}
+    name: Release Package Addon
+    runs-on: windows-latest
+    steps:
+    - name: Packaging
+      run: 7z a -r InspectWeapons_Expanded_${{ github.event.release.tag_name }}.zip ./src/
+  manual-packaging:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Manual Package Addon
+    runs-on: windows-latest
+    steps:
+    - name: Packaging
+      run: 7z a -r InspectWeapons_Expanded_${{ inputs.suffix }}.zip ./src/
