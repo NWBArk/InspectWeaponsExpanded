@@ -1,0 +1,321 @@
+-- FireModeCheck
+-- Last modified: 2022.08.19
+-- https://github.com/Ishmaeel/FireModeCheck
+
+firing_mode_descriptions = { [1] = "Single", [2] = "Burst", [3] = "Burst", [-1] = "Full-Auto" }
+
+user_modes = { "firemode_handler_basic_check", "firemode_handler_dual_key_check", "firemode_handler_single_key_check" }
+suppress_modes = { "suppress_key_basic_check", "suppress_key_dual_key_check", "suppress_key_single_key_check" }
+
+local display_duration = 3 -- seconds
+local hide_after = 0
+
+local DISPLAY_TEXT = 1
+local DISPLAY_IMAGE = 2
+
+local _tap_count = 0
+local _mute_switch = false
+local _hide_gui = false
+local _user_mode = nil
+local _suppress_mode = nil
+local _display_Mode = DISPLAY_TEXT + DISPLAY_IMAGE
+
+local k_PREV = key_bindings.kWPN_FIREMODE_PREV
+local k_NEXT = key_bindings.kWPN_FIREMODE_NEXT
+
+local disable_input = nil
+local enable_input = nil
+
+function on_game_start()
+    perform_setup()
+    take_hostages()
+end
+
+function ishy_on_key_press(key)
+    local bind = dik_to_bind(key)
+
+    if bind == k_PREV or bind == k_NEXT then
+        _last_bind = bind
+
+        handler = this[_user_mode]
+        if handler then
+            _mute_switch = true -- Make sure GFMSS does not play audio unless we actually allow mode switch.
+            handler()
+        end
+
+        if not _mute_switch then
+            on_key_press_relay(key)
+        end
+    end
+end
+
+-- Do nothing. Just report the new firing mode after letting the switch go through.
+function firemode_handler_basic_check()
+    _mute_switch = false
+    show_firemode()
+end
+
+-- NEXT key works normally. PREV key blocks the switch and just reports firing mode.
+function firemode_handler_dual_key_check()
+    if _last_bind == k_PREV then
+        disable_input()
+		inspect_weapon()
+    else
+        _mute_switch = false
+    end
+
+    show_firemode()
+end
+
+-- Both keys function in the same way: Single tap: check only. Double tap, switch to next/prev mode.
+function firemode_handler_single_key_check()
+    _tap_count = (_tap_count or 0) + 1
+
+    if _tap_count > 1 then
+        _tap_count = 0
+        _mute_switch = false
+    else
+        disable_input()
+        reset_taps()
+    end
+
+    show_firemode()
+end
+
+function ishy_on_before_key_press(dik, bind, dis, flags)
+    if bind == k_PREV or bind == k_NEXT then
+        suppress_handler = this[_suppress_mode]
+        if suppress_handler then
+            local allow_keypress = not suppress_handler()
+            flags.ret_value = allow_keypress
+        end
+    end
+end
+
+-- basic mode never prevents firemode change
+function suppress_key_basic_check()
+    return false
+end
+
+-- dual mode only prevents firemode change with the PREV key
+function suppress_key_dual_key_check()
+    return (_last_bind == k_PREV)
+end
+
+-- single mode only prevents firemode change for the first tap
+function suppress_key_single_key_check()
+    return (_tap_count == 1)
+end
+
+function show_firemode()
+    hide_after = time_global() + display_duration * 1000
+    CreateTimeEvent("firemode_check", "show_firemode_delayed", 0.0, show_firemode_delayed)
+end
+
+function show_firemode_refresh()
+    CreateTimeEvent("firemode_check", "show_firemode_delayed", 0.1, show_firemode_delayed)
+    return true
+end
+
+function show_firemode_delayed()
+    enable_input()
+    local current_mode, selector_type = get_fire_mode_data()
+    local mode_description = firing_mode_descriptions[current_mode]
+
+    if mode_description then
+        if bit_and(_display_Mode, DISPLAY_TEXT) > 0 then
+            show_message(mode_description)
+        end
+
+        if bit_and(_display_Mode, DISPLAY_IMAGE) > 0 then
+            show_indicator(mode_description, selector_type)
+        end
+    else
+        hide_after = 0
+    end
+
+    if time_global() >= hide_after then
+        CreateTimeEvent("firemode_check", "hide_firemode_delayed", 0, hide_firemode_delayed)
+    else
+        CreateTimeEvent("firemode_check", "show_firemode_refresh", 0, show_firemode_refresh)
+    end
+
+    return true
+end
+
+function hide_firemode_delayed()
+    hide_all()
+    return true
+end
+
+function reset_taps()
+    CreateTimeEvent("firemode_check", "reset_taps_delayed", 0.5, reset_taps_delayed)
+end
+
+function reset_taps_delayed()
+    _tap_count = 0
+    return true
+end
+
+function get_fire_mode_data()
+    local weapon = db.actor:active_item()
+    if weapon == nil or not IsWeapon(weapon) or IsItem("fake_ammo_wpn", nil, weapon) then
+        return
+    end
+
+    local has_multiple_modes, firemode_upgrade = get_multiple_fire_modes_and_upgrade(weapon)
+    if not has_multiple_modes then
+        return
+    end
+
+    local cWeapon = weapon:cast_Weapon()
+    local root_section = weapon:section()
+    root_section = ini_sys:r_string_ex(root_section, "parent_section") or root_section
+
+    local fire_mode = (cWeapon and cWeapon:GetFireMode()) or 0
+    local selector_type = table.concat({ root_section, firemode_upgrade }, "_")
+
+    return fire_mode, selector_type
+end
+
+function get_multiple_fire_modes_and_upgrade(weapon)
+    local section = weapon:section()
+
+    local has_multiple_fire_modes = false
+    local installed_upgrade_section = nil
+
+    local fire_modes = parse_list(ini_sys, section, "fire_modes")
+
+    if fire_modes and table.getn(fire_modes) > 1 then
+        has_multiple_fire_modes = true
+    end
+
+    weapon:iterate_installed_upgrades(function(upgr_sec)
+        local upgr_prop_sec = ini_sys:r_string_ex(upgr_sec, "section")
+        if upgr_prop_sec then
+            local upgr_fire_modes = parse_list(ini_sys, upgr_prop_sec, "fire_modes")
+            if upgr_fire_modes and table.getn(upgr_fire_modes) > 1 then
+                has_multiple_fire_modes = true
+                installed_upgrade_section = upgr_sec
+                return true
+            end
+        end
+    end)
+
+    return has_multiple_fire_modes, installed_upgrade_section
+end
+
+function show_message(message, ...)
+    if message and ish_firemode_hud then
+        ish_firemode_hud.show_text(message)
+    end
+end
+
+function show_indicator(indicator, weapon_section)
+    if indicator and ish_firemode_hud then
+        ish_firemode_hud.show_indicator(indicator, weapon_section)
+    end
+end
+
+function hide_all()
+    if ish_firemode_hud then
+        ish_firemode_hud.hide_all()
+    end
+end
+
+function actor_on_first_update()
+    on_option_change()
+	if ish_firemode_hud then
+		ish_firemode_hud.activate_hud()
+	end
+end
+
+function actor_on_net_destroy()
+	if ish_firemode_hud then
+		ish_firemode_hud.deactivate_hud()
+	end
+end
+
+function on_option_change()
+    local user_mode_id = (ui_mcm and ui_mcm.get("fireModeCheck/userMode")) or 3
+    _user_mode = user_modes[user_mode_id]
+    _suppress_mode = suppress_modes[user_mode_id]
+    _hide_gui = (ui_mcm and ui_mcm.get("fireModeCheck/hideGui")) or (not ui_mcm and true)
+    _display_Mode = (ui_mcm and ui_mcm.get("fireModeCheck/displayMode")) or DISPLAY_TEXT + DISPLAY_IMAGE
+
+    toggle_firemode_gui()
+end
+
+function toggle_firemode_gui()
+    pos = ActorMenu.get_maingame().m_ui_hud_states.m_fire_mode:GetWndPos()
+    pos.x = ((_hide_gui and pos.x > 0) or ((not _hide_gui) and pos.x < 0)) and (-1 * pos.x) or pos.x -- Raven, no!
+    ActorMenu.get_maingame().m_ui_hud_states.m_fire_mode:SetWndPos(pos)
+end
+
+--------------------------------------------------------------------------------------------------------------
+------ Compatibility section for General Fire Mode Switcher Sound (GFMSS) by TheVoidPancake + HarukaSai ------
+------      https://www.moddb.com/mods/stalker-anomaly/addons/general-fire-mode-switcher-sound           -----
+--------------------------------------------------------------------------------------------------------------
+
+function take_hostages()
+    -- if GFMSS is installed, monkey patch its key press handler and take it hostage.
+    if void_fmode_sound and void_fmode_sound.on_key_press then
+        on_key_press_relay = void_fmode_sound.on_key_press -- take this and wait for my signal!
+        void_fmode_sound.on_key_press = on_key_press_gatekeeper -- not a peep unless I say so!
+    end
+end
+
+function on_key_press_relay(key)
+    -- just a placeholder. it will be replaced with GFMSS on_key_press.
+end
+
+function on_key_press_gatekeeper(key)
+    -- just a void function. it will effectively disable GFMSS on_key_press.
+end
+
+--------------------------------------------------------------------------------------------------------------
+------                            Compatibility section for 1.5.1 and 1.5.2                             ------
+--------------------------------------------------------------------------------------------------------------
+
+function perform_setup()
+    local modern_mode = (axr_main.callback_add ~= nil)
+
+    if modern_mode then
+        enable_input = do_not_mess_with_the_input
+        disable_input = do_not_mess_with_the_input
+
+        RegisterScriptCallback("on_before_key_press", ishy_on_before_key_press)
+    else
+        enable_input = level.enable_input
+        disable_input = level.disable_input
+    end
+
+    RegisterScriptCallback("on_key_press", ishy_on_key_press)
+    RegisterScriptCallback("on_option_change", on_option_change)
+    RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
+    RegisterScriptCallback("actor_on_net_destroy", actor_on_net_destroy)
+end
+
+function do_not_mess_with_the_input()
+    -- just a void function. Anomaly 1.5.2 has a better way to cancel a keypress.
+end
+
+function inspect_weapon()
+    local weapon = db.actor:active_item()
+
+    if weapon == nil or not IsWeapon(weapon) then
+        return
+    end
+
+    local sec = weapon:section()
+    local idle_section = utils_item.addon_attached(weapon ,"gl") and (weapon:weapon_in_grenade_mode() and "anm_bore_g" or "anm_bore_w_gl") or "anm_bore"
+    local hud = ini_sys:r_string_ex(sec, "hud")
+    local bored_anim = hud and ini_sys:r_string_ex(hud,idle_section)
+    if bored_anim then
+        local sound = ini_sys:r_string_ex(sec, "snd_bore") or "$no_sound"
+        weapon:play_hud_motion(idle_section, true, 0, 1, 0)
+        if sound then
+            utils_obj.play_sound(sound)
+        end
+    end
+end
