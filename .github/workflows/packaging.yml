@@ -8,20 +8,30 @@ on:
         description: 'Suffix of the addon package'
         required: true
         type: string
+
 jobs:
   release-packaging:
     if: ${{ github.event_name == 'release' }}
     name: Release Package Addon
     runs-on: windows-latest
     steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v6.0.2
+      with:
+        ref: 'main'
     - name: Packaging
       shell: powershell
       run: Compress-Archive -Path src/* -Destination InspectWeapons_Expanded_${{ github.event.release.tag_name }}.zip
+
   manual-packaging:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Manual Package Addon
     runs-on: windows-latest
     steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v6.0.2
+      with:
+        ref: 'main'
     - name: Packaging
       shell: powershell
       run: Compress-Archive -Path src/* -Destination InspectWeapons_Expanded_${{ inputs.suffix }}.zip
