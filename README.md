@@ -17,7 +17,7 @@ Depending on the weapon packs you use, <u>some weapons might not provide a suita
 - **Remove UI**: Choose whether to remove in-game UI during the animation or not.
 
 ### Changelog:
-See [Changelogs](/Changelogs.md).
+See [Changelogs](/CHANGELOG.md).
 
 ### Current limits:
 - Requires Screen Space Shaders as this addon needs to call SSS' weapon DoF command.
