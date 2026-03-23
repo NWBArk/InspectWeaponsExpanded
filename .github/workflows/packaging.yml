@@ -15,11 +15,13 @@ jobs:
     runs-on: windows-latest
     steps:
     - name: Packaging
-      run: 7z a -r InspectWeapons_Expanded_${{ github.event.release.tag_name }}.zip ./src/
+      shell: powershell
+      run: Compress-Archive -Path src/* -Destination InspectWeapons_Expanded_${{ github.event.release.tag_name }}.zip
   manual-packaging:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Manual Package Addon
     runs-on: windows-latest
     steps:
     - name: Packaging
-      run: 7z a -r InspectWeapons_Expanded_${{ inputs.suffix }}.zip ./src/
+      shell: powershell
+      run: Compress-Archive -Path src/* -Destination InspectWeapons_Expanded_${{ inputs.suffix }}.zip
