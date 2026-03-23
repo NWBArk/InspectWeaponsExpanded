@@ -1,0 +1,27 @@
+#include "common.h"
+#include "screenspace_common.h"
+#include "screenspace_dof.h"
+#include "betterBeefsNvg_ssfx_dof_nvg.h"
+#include "inspectWeapon_dof.h"
+
+uniform float4 shader_param_8;
+
+float4 main(p_screen I) : SV_TARGET
+{
+	float3 P = SSFX_get_position(I.tc0, 0);
+	float3 img = s_image.Sample(smp_nofilter, I.tc0).rgb;
+#ifdef SSFX_BEEFS_NVG
+	if (floor(shader_param_8.x) > 0.0f)
+	{
+		return float4(SSFX_DOF_NVG(I.tc0, P, img), 1.0f);
+	}
+	else
+	{
+#ifdef INSPECT_DOF
+		return float4(Inspect_DOF(I.tc0, P, img), 1.0f);
+#else
+		return float4(SSFX_DOF( I.tc0, P, img ), 1.0);
+#endif
+	}
+#endif
+}
