@@ -13,7 +13,7 @@ Depending on the weapon packs you use, <u>some weapons might not provide a suita
 
 ### New features:
 - **Customizable key input mode**: Choose between single press, double tap or long hold to trigger the inspection.
-- **High quality Depth of Field effect**: Choose whether to enable high quality Bokeh DoF during the animation or not.
+- **High quality Depth of Field effect**: Choose whether to enable high quality Bokeh DoF during the animation or not. [Effect Preview](/assets/images/bokeh.jpeg)
 - **Remove UI**: Choose whether to remove in-game UI during the animation or not.
 
 ### Changelog:
