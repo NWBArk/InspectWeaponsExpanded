@@ -15,7 +15,7 @@ jobs:
     name: Release Package Addon
     runs-on: windows-latest
     env:
-      PackageName: InspectWeapons_Expanded_${{ github.event.release.tag_name }}.zip
+      package_name: InspectWeapons_Expanded_${{ github.event.release.tag_name }}.zip
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v6.0.2
@@ -23,8 +23,8 @@ jobs:
         ref: 'main'
     - name: Packaging
       shell: powershell
-      run: Compress-Archive -Path src/* -Destination ${{ env.PackageName }}
-    - name: Upload Package
+      run: Compress-Archive -Path src/* -Destination ${{ env.package_name }}
+    - name: Release Addon
       uses: AButler/upload-release-assets@v3.0.1
       with:
         files: $PackageName
@@ -36,7 +36,7 @@ jobs:
     name: Manual Package Addon
     runs-on: windows-latest
     env:
-      PackageName: InspectWeapons_Expanded_${{ inputs.suffix }}.zip
+      package_name: InspectWeapons_Expanded_${{ inputs.suffix }}.zip
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v6.0.2
@@ -44,4 +44,9 @@ jobs:
         ref: 'main'
     - name: Packaging
       shell: powershell
-      run: Compress-Archive -Path src/* -Destination ${{ env.PackageName }}
+      run: Compress-Archive -Path src/* -Destination ${{ env.package_name }}
+    - name: Upload Artefact
+      uses: actions/upload-artifact@v3.2.2
+      with:
+        path: ${{ env.package_name }}
+        compression-level: 0
