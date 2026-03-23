@@ -1,17 +1,227 @@
+local inspect_utils = inspectWeapon_utils
 local console = get_console()
 
 local inspect_ui_state = { hud_enabled = nil, crosshair_enabled = nil }
+
+local inspect_ui_elements = 
+{ 
+	progress_bars = {background = {}, health = {}, stamina = {}, psy = {} },
+	minimap = {},
+	status_indicators = {},
+	belt_artefacts = {},
+	companions = {} 
+}
+
+local status_indicator_ui_parts = { "icon", "back" }
+local belt_artefact_ui_parts = { "ico", "layer" }
+local companion_list_ui_parts = { "base", "background", "icon", "danger_indicator", "team_role_shadow", "team_role", "distance", "prog_health" }
+
+--region UI Utils
+function inspect_get_ui_element_alpha(ui_element)
+	if ui_element == nil then
+		return 0
+	end
+
+	return clamp(tonumber(ui_element.basecolor and ui_element.basecolor.a) or 255, 0, 255)
+end
+
+function inspect_get_ui_element_opacity(ui_element)
+	return inspect_get_ui_element_alpha(ui_element) / 255;
+end
+
+function inspect_set_ui_element_opacity(ui_element, opacity)
+	if ui_element == nil then
+		return
+	end
+
+	local alpha = inspect_get_ui_element_alpha(ui_element) * opacity
+	local color_to_set = {}
+	if ui_element.GetTextureColor then
+		local current_color_int = ui_element:GetTextureColor()
+		color_to_set.r, color_to_set.g, color_to_set.b, color_to_set.a = current_color_int and inspect_utils.int_to_rgba(current_color_int)
+		color_to_set.a = alpha or color_to_set.a
+		ui_element:SetTextureColor(inspect_utils.get_argb(color_to_set.a, color_to_set.r, color_to_set.g, color_to_set.b))
+	end
+
+	if ui_element.TextControl then
+		color_to_set = ui_element.currcolor or ui_element.basecolor or {}
+		color_to_set.a = alpha or color_to_set.a
+		color_to_set.r = color_to_set.r or 255
+		color_to_set.g = color_to_set.g or 255
+		color_to_set.b = color_to_set.b or 255
+		ui_element.currcolor = color_to_set
+		ui_element:TextControl():SetTextColor(inspect_utils.get_argb(color_to_set.a, color_to_set.r, color_to_set.g, color_to_set.b))
+	end
+end
+
+function inspect_iterate_ui_window_hud_slot(ui_window, iterate_functor)
+	local hud = ui_window and ui_window.HUD
+	if hud == nil or iterate_functor == nil then
+		return
+	end
+
+	if hud.slot then
+		iterate_functor(hud.slot)
+		return
+	end
+
+	if hud.companion_info then
+		iterate_functor(hud.companion_info)
+	end
+end
+--endregion
 
 function inspect_update_ui_state()
 	inspect_ui_state.hud_enabled = console:get_integer("hud_draw")
 	inspect_ui_state.crosshair_enabled = console:get_integer("hud_crosshair")
 end
 
+function inspect_update_ui_elements()
+	inspect_update_minimap_ui_elements()
+	inspect_update_state_bar_ui_elements()
+	inspect_update_status_indicator_ui_elements()
+	inspect_update_belt_artefact_ui_elements()
+	inspect_update_companion_list_ui_elements()
+end
+
+function inspect_update_state_bar_ui_elements()
+	local maingame_ui = ActorMenu.get_maingame()
+	if maingame_ui == nil then
+		return
+	end
+
+	--[[ 
+		CUIProgressBar::GetProgressStatic() was added in modded exe version 2025.05.12
+		https://github.com/themrdemonized/xray-monolith/pull/225
+	--]]
+	inspect_ui_elements.progress_bars.health.ui = maingame_ui.m_ui_hud_states.m_ui_health_bar:GetProgressStatic()
+	inspect_ui_elements.progress_bars.stamina.ui = maingame_ui.m_ui_hud_states.m_ui_stamina_bar:GetProgressStatic()
+	inspect_ui_elements.progress_bars.psy.ui = maingame_ui.m_ui_hud_states.m_ui_psy_bar:GetProgressStatic()
+	inspect_ui_elements.progress_bars.health.opacity = inspect_get_ui_element_opacity(inspect_ui_elements.progress_bars.health.ui)
+	inspect_ui_elements.progress_bars.stamina.opacity = inspect_get_ui_element_opacity(inspect_ui_elements.progress_bars.stamina.ui)
+	inspect_ui_elements.progress_bars.psy.opacity = inspect_get_ui_element_opacity(inspect_ui_elements.progress_bars.psy.ui)
+
+	-- Background texture has a bar in the position of psy bar? WTF?
+	inspect_ui_elements.progress_bars.background.ui = maingame_ui.m_ui_hud_states.m_back
+	inspect_ui_elements.progress_bars.background.opacity = inspect_get_ui_element_opacity(inspect_ui_elements.progress_bars.background.ui)
+end
+
+function inspect_update_minimap_ui_elements()
+	local maingame_ui = ActorMenu.get_maingame()
+	if maingame_ui == nil then
+		return
+	end
+
+	-- CUIZoneMap doesn't have its members or getters exposed for now.
+	inspect_ui_elements.minimap.ui = maingame_ui.UIZoneMap
+	inspect_ui_elements.minimap.motion_icon = maingame_ui.UIMotionIcon
+	inspect_ui_elements.minimap.visible = not maingame_ui.UIZoneMap.disabled
+end
+
+function inspect_update_status_indicator_ui_elements()
+	inspectWeapon_utils.clear_table(inspect_ui_elements.status_indicators)
+
+	inspect_iterate_ui_window_hud_slot(actor_status, function(slot)
+		local part_static, part_flash
+		for i = 1, size_table(slot) do
+			inspect_ui_elements.status_indicators[i] = {}
+
+			local static, flash
+			for j = 1, #status_indicator_ui_parts do
+				local part_base = status_indicator_ui_parts[j]
+				inspect_ui_elements.status_indicators[i][part_base] = {}
+
+				part_static = part_base .. "_s"
+				part_flash = part_base .. "_f"
+				static = slot[i][part_static]:IsEnabled() and slot[i][part_static] or nil
+				flash = slot[i][part_flash]:IsEnabled() and slot[i][part_flash] or nil
+				printf("Static: %s, Flash: %s", static, flash)
+
+				inspect_ui_elements.status_indicators[i][part_base].ui = static or flash
+				inspect_ui_elements.status_indicators[i][part_base].opacity = inspect_get_ui_element_opacity(inspect_ui_elements.status_indicators[i][part_base].ui)
+			end
+		end
+	end)
+end
+
+function inspect_update_belt_artefact_ui_elements()
+	inspectWeapon_utils.clear_table(inspect_ui_elements.belt_artefacts)
+
+	inspect_iterate_ui_window_hud_slot(item_artefact, function(slot)
+		local part
+		-- Vanilla Anomaly hardcodes belt slots to be 5, but just in case user has other addons that alter this limit.
+		for i = 1, size_table(slot) do
+			inspect_ui_elements.belt_artefacts[i] = {}
+
+			for j = 1, #belt_artefact_ui_parts do
+				part = belt_artefact_ui_parts[j]
+				inspect_ui_elements.belt_artefacts[i][part] = {}
+
+				inspect_ui_elements.belt_artefacts[i][part].ui = slot[i][part]:IsShown() and slot[i][part] or nil
+				inspect_ui_elements.belt_artefacts[i][part].opacity = inspect_get_ui_element_opacity(inspect_ui_elements.belt_artefacts[i][part].ui)
+			end
+		end
+	end)
+end
+
+function inspect_update_companion_list_ui_elements()
+	inspectWeapon_utils.clear_table(inspect_ui_elements.companions)
+
+	inspect_iterate_ui_window_hud_slot(axr_companions, function(slot)
+		local part
+		-- Vanilla Anomaly hardcodes max companions to be 8, but just in case user has other addons that alter this limit.
+		for i = 1, size_table(slot) do
+			inspect_ui_elements.companions[i] = {}
+
+			for j = 1, #companion_list_ui_parts do
+				part = companion_list_ui_parts[j]
+				inspect_ui_elements.companions[i][part] = {}
+
+				inspect_ui_elements.companions[i][part].ui = slot[i][part]:IsShown() and slot[i][part] or nil
+				inspect_ui_elements.companions[i][part].opacity = inspect_get_ui_element_opacity(inspect_ui_elements.companions[i][part].ui)
+			end
+		end
+	end)
+end
+
+function inspect_fade_out_ui_elements()
+	inspect_set_ui_element_opacity(inspect_ui_elements.progress_bars.background.ui, 0)
+	inspect_set_ui_element_opacity(inspect_ui_elements.progress_bars.health.ui, 0)
+	inspect_set_ui_element_opacity(inspect_ui_elements.progress_bars.stamina.ui, 0)
+	inspect_set_ui_element_opacity(inspect_ui_elements.progress_bars.psy.ui, 0)
+
+	inspect_ui_elements.minimap.ui.disabled = true
+	inspect_ui_elements.minimap.motion_icon:Show(false)
+
+	for i = 1, size_table(inspect_ui_elements.status_indicators) do
+		for j = 1, #status_indicator_ui_parts do
+			inspect_set_ui_element_opacity(inspect_ui_elements.status_indicators[i][j].ui, 0)
+		end
+	end
+end
+
+function inspect_fade_in_ui_elements()
+	inspect_set_ui_element_opacity(inspect_ui_elements.progress_bars.background.ui, inspect_ui_elements.progress_bars.background.opacity)
+	inspect_set_ui_element_opacity(inspect_ui_elements.progress_bars.health.ui, inspect_ui_elements.progress_bars.health.opacity)
+	inspect_set_ui_element_opacity(inspect_ui_elements.progress_bars.stamina.ui, inspect_ui_elements.progress_bars.stamina.opacity)
+	inspect_set_ui_element_opacity(inspect_ui_elements.progress_bars.psy.ui, inspect_ui_elements.progress_bars.psy.opacity)
+
+	inspect_ui_elements.minimap.ui.disabled = not inspect_ui_elements.minimap.visible
+	inspect_ui_elements.minimap.motion_icon:Show(inspect_ui_elements.minimap.visible)
+
+	for i = 1, size_table(inspect_ui_elements.status_indicators) do
+		for j = 1, #status_indicator_ui_parts do
+			inspect_set_ui_element_opacity(inspect_ui_elements.status_indicators[i][j].ui, inspect_ui_elements.status_indicators[i][j].opacity)
+		end
+	end
+end
+
 function inspect_hide_ui()
 	inspect_update_ui_state()
+	inspect_update_ui_elements()
 
 	if inspect_ui_state.hud_enabled ~= nil and inspect_ui_state.hud_enabled == 1 then
-		console:execute("hud_draw 0")
+		inspect_fade_out_ui_elements()
 	end
 	if inspect_ui_state.crosshair_enabled ~= nil and inspect_ui_state.crosshair_enabled == 1 then
 		console:execute("hud_crosshair 0")
@@ -22,7 +232,7 @@ function inspect_show_ui()
 	RemoveTimeEvent(0, "inspect_show_ui")
 
 	if inspect_ui_state.hud_enabled ~= nil and inspect_ui_state.hud_enabled == 1 then
-		console:execute("hud_draw 1")
+		inspect_fade_in_ui_elements()
 	end
 	if inspect_ui_state.crosshair_enabled ~= nil and inspect_ui_state.crosshair_enabled == 1 then
 		console:execute("hud_crosshair 1")
