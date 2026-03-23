@@ -23,7 +23,7 @@ jobs:
         ref: 'main'
     - name: Packaging
       shell: powershell
-      run: Compress-Archive -Path src/* -Destination $PackageName
+      run: Compress-Archive -Path src/* -Destination ${{ env.PackageName }}
     - name: Upload Package
       uses: AButler/upload-release-assets@v3.0.1
       with:
@@ -44,4 +44,4 @@ jobs:
         ref: 'main'
     - name: Packaging
       shell: powershell
-      run: Compress-Archive -Path src/* -Destination $PackageName
+      run: Compress-Archive -Path src/* -Destination ${{ env.PackageName }}
