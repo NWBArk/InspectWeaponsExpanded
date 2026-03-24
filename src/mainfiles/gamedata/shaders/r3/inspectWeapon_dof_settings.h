@@ -9,7 +9,7 @@
     High - 43 samples
     Veryhigh - 71 samples
 */
-#define INSPECT_DOF_QUALITY_VERYHIGH
+#define INSPECT_DOF_QUALITY_LOW
 
 /*
     Controls DoF blur radius.

@@ -1,0 +1,49 @@
+#include "screenspace_common.h"
+#include "screenspace_dof.h"
+#include "inspectWeapon_dof_utils.h"
+#include "betterBeefsNvg_ssfx_dof_nvg.h"
+
+Texture2D samplero_pepero;
+uniform float4 shader_param_8;
+
+float4 main(p_screen I) : SV_TARGET
+{
+    float4 dof = samplero_pepero.SampleLevel(smp_nofilter, I.tc0, 0);
+#ifdef INSPECT_DOF
+#ifdef SSFX_BEEFS_NVG
+    // Don't do anything if NVG is on.
+	if (floor(shader_param_8.x) > 0.0f)
+	{
+		return float4(dof.rgb, 1.0f);
+	}
+#endif
+
+    float3 filtered = dof.rgb;
+    float bilateralWeight = 0;
+    // 3x3 filtering with luminance.
+    for (int j = -1; j <= 1; j++)
+    {
+        for (int k = -1; k <= 1; k++)
+        {
+            float2 neighborOffset = float2(j, k) * ssfx_pixel_size;
+            float4 neighborSample = samplero_pepero.SampleLevel(smp_nofilter, I.tc0 + neighborOffset, 0);
+            
+            // Luminance-based weight to preserve edges in bokeh.
+            float lumDiff = abs(GetLuminance(neighborSample.rgb) - GetLuminance(dof.rgb));
+            float lumWeight = exp(-lumDiff * 2.0f);
+            
+            filtered += neighborSample.rgb;
+            bilateralWeight += lumWeight;
+        }
+    }
+    filtered *= 1 / bilateralWeight;
+
+    // Same mix logic as the main DoF pass.
+    float coc = dof.a;
+    float depth = SSFX_get_depth(I.tc0, 0);
+    filtered = lerp(dof, filtered, saturate(smoothstep(0.1f, 1.0f, coc) + int(depth <= SKY_EPS)) * ssfx_wpn_dof_1.z);
+
+    return float4(filtered, 1.0f);
+#endif
+    return float4(dof.rgb, 1.0f);
+}
