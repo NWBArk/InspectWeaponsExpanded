@@ -1,0 +1,19 @@
+#include "inspectWeapon_dof_denoise.h"
+
+uniform float4 shader_param_8;
+
+float4 main(p_screen I) : SV_TARGET
+{
+    float4 dof = samplero_pepero.SampleLevel(smp_nofilter, I.tc0, 0);
+#ifdef INSPECT_DOF
+#ifdef SSFX_BEEFS_NVG
+    // Don't do anything if NVG is on.
+	if (floor(shader_param_8.x) > 0.0f)
+	{
+		return float4(dof.rgb, 1.0f);
+	}
+#endif
+    return float4(Inspect_DOF_Denoise(I.tc0, dof), 1.0f);
+#endif
+    return float4(dof.rgb, 1.0f);
+}
