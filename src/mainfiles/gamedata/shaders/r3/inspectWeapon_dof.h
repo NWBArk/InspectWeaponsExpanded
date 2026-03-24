@@ -1,10 +1,15 @@
+#include "inspectWeapon_dof_settings.h"
 #include "inspectWeapon_dof_utils.h"
 
 /**
 	@brief Calculates Depth of Field.
+
+	@param tc TexCoord.
+	@param pos Position, z: depth.
+	@param image Buffer color.
 	@return float4, rgb: pixel color, a: coc.
 */
-float4 Inspect_DOF(float2 tc, float3 depth, float3 image)
+float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 {
 /*  ---------------------
 	Background bokeh DoF.
@@ -14,7 +19,7 @@ float4 Inspect_DOF(float2 tc, float3 depth, float3 image)
 	// x: focus distance, y: focus length, z: blur amount.
 	float3 lensProperty = float3(ssfx_wpn_dof_1.z, ssfx_wpn_dof_1.y - ssfx_wpn_dof_1.x, ssfx_wpn_dof_1.w);
 
-	float coc = CalculateCoC(depth.z, lensProperty.x, lensProperty.y, lensProperty.z);
+	float coc = CalculateCoC(pos.z, lensProperty.x, lensProperty.y, lensProperty.z);
 	float2 radiusToUse = (1 / float2(3840, 2160)) * INSPECT_DOF_RADIUS * lensProperty.z;
 
 	float3 blurBackground = 0;
@@ -41,8 +46,8 @@ float4 Inspect_DOF(float2 tc, float3 depth, float3 image)
 	---------------------
 */
 	// Use Depth to adjust blur intensity
-	float blurAmountForeground = lerp(ssfx_wpn_dof_1.w, 0, smoothstep(ssfx_wpn_dof_1.x, ssfx_wpn_dof_1.y, depth.z ) );	
-	blurAmountForeground *= depth.z > SKY_EPS; // Don't apply to the sky ( Sky depth = float(0.001) )
+	float blurAmountForeground = lerp(ssfx_wpn_dof_1.w, 0, smoothstep(ssfx_wpn_dof_1.x, ssfx_wpn_dof_1.y, pos.z ) );	
+	blurAmountForeground *= pos.z > SKY_EPS; // Don't apply to the sky ( Sky depth = float(0.001) )
 
 	float edgeBlur = 0;
 
@@ -96,7 +101,7 @@ float4 Inspect_DOF(float2 tc, float3 depth, float3 image)
 	// Far blur ( Reload, Inventory and PDA )
 	if (ssfx_wpn_dof_1.z > 0)
 	{
-		image = lerp(image, blurBackground, saturate(smoothstep(0.1f, 1.0f, coc) + int(depth.z <= SKY_EPS)) * ssfx_wpn_dof_1.z);
+		image = lerp(image, blurBackground, saturate(smoothstep(0.1f, 1.0f, coc) + int(pos.z <= SKY_EPS)) * ssfx_wpn_dof_1.z);
 	}
 
 	return float4(image, coc);
