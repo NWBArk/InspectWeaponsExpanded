@@ -1,3 +1,5 @@
+#include "inspectWeapon_dof_defines.h"
+
 float CalculateCoC(float depth, float distance, float range, float radius)
 {
 	// CoC < 0: pixel in foreground DoF, CoC > 0: pixel in background DoF.
@@ -7,6 +9,11 @@ float CalculateCoC(float depth, float distance, float range, float radius)
 float SampleWeightFromCoC(float coc, float radius)
 {
 	return saturate((coc - radius + 2.0f) / 2.0f);
+}
+
+float GetLuminance(float3 fragment)
+{
+    return dot(fragment, LumaCoeff);
 }
 
 // Taken from CinematicDOF reshade shader.

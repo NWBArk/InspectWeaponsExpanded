@@ -9,7 +9,7 @@
     High - 43 samples
     Veryhigh - 71 samples
 */
-#define INSPECT_DOF_QUALITY_VERYHIGH
+#define INSPECT_DOF_QUALITY_MEDIUM
 
 /*
     Controls DoF blur radius.
@@ -21,4 +21,4 @@
     Controls DoF highlight boost amount.
     Too high of a value might cause incorrect colors in final DoF result.
 */
-#define INSPECT_DOF_HIGHLIGHT_GAIN 0.4f
+#define INSPECT_DOF_HIGHLIGHT_GAIN 0.5f
