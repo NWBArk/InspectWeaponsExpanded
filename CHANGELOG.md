@@ -1,3 +1,9 @@
+### v1.9
+- Improved Bokeh DoF quality.
+    - Added denoising pass to DoF so the final image will be way less noisy.
+    - Due to the improvement above, DoF's default quality setting has been lowered to INSPECT_DOF_QUALITY_MEDIUM.
+    This should provide better performance while maintaining the rendering quality.
+- Moved Bokeh DoF shader into its own patch in FMOD.
 ### v1.8-hotfix
 - Fixed crash caused by invocations of undefined functions.
 ### v1.8
