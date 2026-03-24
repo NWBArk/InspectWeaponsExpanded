@@ -17,7 +17,7 @@
 ### v1.6
 - Improved Bokeh DoF quality.
     - Apply tonemap to sampled color so when it receives highlight boost, the color will be more natural and avoids white washout.
-    - Due to the change above, INSPECT_DOF_HIGHLIGHT_THRESHOLD parameter is no longer needed, thus has been removed.
+    - Due to this improvement, INSPECT_DOF_HIGHLIGHT_THRESHOLD setting has been removed due to redundancy.
 ### v1.5
 - Implemented Circle of Confusion based Bokeh DoF for r3 and r4 renderers.
 Game now will render high quality Bokeh DoF during inspection instead of the original gaussian blur based DoF.
