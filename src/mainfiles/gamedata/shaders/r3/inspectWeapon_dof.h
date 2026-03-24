@@ -1,37 +1,53 @@
-#include "inspectWeapon_dof_defines.h"
+#include "inspectWeapon_dof_settings.h"
 #include "inspectWeapon_dof_utils.h"
 
-// x: min focus length, y: max focus length, z: focus distance, w: blur amount
-//uniform float4 ssfx_wpn_dof_1;
-//uniform float ssfx_wpn_dof_2;
+/**
+	@brief Calculates Depth of Field.
 
-float3 Inspect_DOF(float2 tc, float3 depth, float3 img)
+	@param tc TexCoord.
+	@param pos Position, z: depth.
+	@param image Buffer color.
+	@return float4, rgb: pixel color, a: coc.
+*/
+float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 {
-	// Background bokeh DoF.
+/*  ---------------------
+	Background bokeh DoF.
+	---------------------
+*/
 	float highlightGain = saturate(INSPECT_DOF_HIGHLIGHT_GAIN);
+	// x: focus distance, y: focus length, z: blur amount.
+	float3 lensProperty = float3(ssfx_wpn_dof_1.z, ssfx_wpn_dof_1.y - ssfx_wpn_dof_1.x, ssfx_wpn_dof_1.w);
+
+	float coc = CalculateCoC(pos.z, lensProperty.x, lensProperty.y, lensProperty.z);
+	float2 radiusToUse = (1 / float2(3840, 2160)) * INSPECT_DOF_RADIUS * lensProperty.z;
 
 	float3 blurBackground = 0;
 	float weight = 0;
-	float coc = CalculateCoC(depth.z, ssfx_wpn_dof_1.z, ssfx_wpn_dof_1.y - ssfx_wpn_dof_1.x, ssfx_wpn_dof_1.w);
-
-	[loop]
+	[unroll]
 	for (int i = 0; i < SampleCount; i++)
 	{
 		// Adjust offset based on radius and screen resolution.
-		float2 offset = Kernel[i] * ssfx_wpn_dof_1.w * ssfx_pixel_size * INSPECT_DOF_RADIUS * (screen_res.x / 3840);
+		float2 offset = Kernel[i] * radiusToUse;
 		float4 sample = s_image.SampleLevel(smp_nofilter, tc + offset, 0);
-		float3 sampleColor = AccentuateWhites(sample.rgb, GammaFactor, highlightGain);
-		blurBackground += sampleColor;
 
+		float3 sampleColor = AccentuateWhites(sample.rgb, GammaFactor, highlightGain);
+		// Apply sample weighting based on CoC.
 		float sampleWeight = SampleWeightFromCoC(max(0, min(sample.a, coc)), length(offset));
+
+		blurBackground += sampleColor;
 		weight += sampleWeight;
 	}
 	blurBackground *= 1 / (weight + (weight == 0));
 	blurBackground = CorrectForWhiteAccentuation(blurBackground, GammaFactor, highlightGain);
 
+/*  ---------------------
+	Foreground DoF.
+	---------------------
+*/
 	// Use Depth to adjust blur intensity
-	float blurAmountForeground = lerp(ssfx_wpn_dof_1.w, 0, smoothstep(ssfx_wpn_dof_1.x, ssfx_wpn_dof_1.y, depth.z ) );	
-	blurAmountForeground *= depth.z > SKY_EPS; // Don't apply to the sky ( Sky depth = float(0.001) )
+	float blurAmountForeground = lerp(ssfx_wpn_dof_1.w, 0, smoothstep(ssfx_wpn_dof_1.x, ssfx_wpn_dof_1.y, pos.z ) );	
+	blurAmountForeground *= pos.z > SKY_EPS; // Don't apply to the sky ( Sky depth = float(0.001) )
 
 	float edgeBlur = 0;
 
@@ -76,17 +92,17 @@ float3 Inspect_DOF(float2 tc, float3 depth, float3 img)
 		}
 
 		// Normalize blur
-		img = Wpn_Blur / 16;
+		image = Wpn_Blur / 16;
 
 		// Peripheral vision blur with extra help from s_blur_2
-		img = lerp(img, blurBackground, saturate(0.4f - (1.0f - edgeBlur)));
+		image = lerp(image, blurBackground, saturate(0.4f - (1.0f - edgeBlur)));
 	}
 	
 	// Far blur ( Reload, Inventory and PDA )
 	if (ssfx_wpn_dof_1.z > 0)
 	{
-		img = lerp(img, blurBackground, saturate(smoothstep(0.1f, 1.0f, coc) + int(depth.z <= SKY_EPS)) * ssfx_wpn_dof_1.z);
+		image = lerp(image, blurBackground, saturate(smoothstep(0.1f, 1.0f, coc) + int(pos.z <= SKY_EPS)) * ssfx_wpn_dof_1.z);
 	}
 
-	return img;
+	return float4(image, coc);
 }

@@ -18,7 +18,7 @@ float4 main(p_screen I) : SV_TARGET
 	else
 	{
 #ifdef INSPECT_DOF
-		return float4(Inspect_DOF(I.tc0, P, img), 1.0f);
+		return Inspect_DOF(I.tc0, P, img);
 #else
 		return float4(SSFX_DOF( I.tc0, P, img ), 1.0);
 #endif
