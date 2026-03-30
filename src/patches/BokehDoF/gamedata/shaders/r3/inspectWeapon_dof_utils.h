@@ -1,5 +1,24 @@
 #include "inspectWeapon_dof_defines.h"
 
+float4 GetViewSpacePosition(float2 tc, uint iSample : SV_SAMPLEINDEX)
+{
+#ifndef USE_MSAA
+	return s_position.SampleLevel(smp_nofilter, tc, 0);
+#else
+	return s_position.Load(int3(tc * screen_res.xy, 0), iSample);
+#endif
+}
+
+float GetDepth(float2 tc, uint iSample: SV_SAMPLEINDEX)
+{
+    return GetViewSpacePosition(tc, iSample).z;
+}
+
+float GetLuminance(float3 fragment)
+{
+    return dot(fragment, LumaCoeff);
+}
+
 float CalculateCoC(float depth, float distance, float range, float radius)
 {
 	// CoC < 0: pixel in foreground DoF, CoC > 0: pixel in background DoF.
@@ -9,11 +28,6 @@ float CalculateCoC(float depth, float distance, float range, float radius)
 float SampleWeightFromCoC(float coc, float radius)
 {
 	return saturate((coc - radius + 2.0f) / 2.0f);
-}
-
-float GetLuminance(float3 fragment)
-{
-    return dot(fragment, LumaCoeff);
 }
 
 // Taken from CinematicDOF reshade shader.

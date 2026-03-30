@@ -1,4 +1,3 @@
-#include "screenspace_common.h"
 #include "inspectWeapon_dof_settings.h"
 #include "inspectWeapon_dof_utils.h"
 
@@ -16,12 +15,12 @@ uniform float4 ssfx_wpn_dof_1;
 float3 Inspect_DOF_Denoise(float2 tc, float4 dof)
 {
     float highlightGain = saturate(INSPECT_DOF_HIGHLIGHT_GAIN);
-    // Color we get from the buffer has already applied accentuation correction, so we need to revert it.
+    // Color we get from the buffer has already applied whiteness accentuation correction, so we need to revert it.
     float3 correctedDof = AccentuateWhites(dof.rgb, GammaFactor, highlightGain);
 
     float3 filtered = correctedDof;
     float bilateralWeight = 0;
-    // 3x3 biliteral filtering with luminance guidence.
+    // 3x3 bilateral filtering with luminance guidence.
     for (int j = -1; j <= 1; j++)
     {
         for (int k = -1; k <= 1; k++)
@@ -44,7 +43,7 @@ float3 Inspect_DOF_Denoise(float2 tc, float4 dof)
 
     // Same mix logic as the main DoF pass.
     float coc = dof.a;
-    float depth = SSFX_get_depth(tc, 0);
+    float depth = GetDepth(tc, 0);
     filtered = lerp(dof, filtered, saturate(smoothstep(0.1f, 1.0f, coc) + int(depth <= SKY_EPS)) * ssfx_wpn_dof_1.z);
 
     return filtered;
