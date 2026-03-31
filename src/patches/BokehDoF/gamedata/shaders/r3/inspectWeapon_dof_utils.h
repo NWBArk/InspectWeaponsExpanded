@@ -1,4 +1,31 @@
+#include "common.h"
 #include "inspectWeapon_dof_defines.h"
+
+uniform float4 shader_param_8;
+
+bool IsUsingNVG()
+{
+	return floor(shader_param_8.x) > 0.0f;
+}
+
+float4 GetPosition(float2 tc, uint iSample : SV_SAMPLEINDEX)
+{
+#ifndef USE_MSAA
+	return s_position.SampleLevel(smp_nofilter, tc, 0);
+#else
+	return s_position.Load(int3(tc * screen_res.xy, 0), iSample);
+#endif
+}
+
+float GetDepth(float2 tc, uint iSample: SV_SAMPLEINDEX)
+{
+    return GetPosition(tc, iSample).z;
+}
+
+float GetLuminance(float3 fragment)
+{
+    return dot(fragment, LumaCoeff);
+}
 
 float CalculateCoC(float depth, float distance, float range, float radius)
 {
@@ -9,11 +36,6 @@ float CalculateCoC(float depth, float distance, float range, float radius)
 float SampleWeightFromCoC(float coc, float radius)
 {
 	return saturate((coc - radius + 2.0f) / 2.0f);
-}
-
-float GetLuminance(float3 fragment)
-{
-    return dot(fragment, LumaCoeff);
 }
 
 // Taken from CinematicDOF reshade shader.

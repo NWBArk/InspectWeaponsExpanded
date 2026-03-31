@@ -1,28 +1,40 @@
 #include "inspectWeapon_dof_settings.h"
 #include "inspectWeapon_dof_utils.h"
 
+uniform float4 ssfx_wpn_dof_1;
+uniform float ssfx_wpn_dof_2;
+
 /**
 	@brief Calculates Depth of Field.
 
 	@param tc TexCoord.
-	@param pos Position, z: depth.
+	@param pos Position, xy: viewspace position, z: depth.
 	@param image Buffer color.
 	@return float4, rgb: pixel color, a: coc.
 */
 float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 {
-/*  ---------------------
-	Background bokeh DoF.
-	---------------------
-*/
-	float highlightGain = saturate(INSPECT_DOF_HIGHLIGHT_GAIN);
-	// x: focus distance, y: focus length, z: blur amount.
-	float3 lensProperty = float3(ssfx_wpn_dof_1.z, ssfx_wpn_dof_1.y - ssfx_wpn_dof_1.x, ssfx_wpn_dof_1.w);
+	/*  ----------------------------------------------------------------------------
+		ssfx_wpn_dof_1:
+		w: blur amount, x: min focus length, y: max focus length, z: focus distance.
 
+		lensProperty:
+		x: focus distance, y: focus range, z: blur radius.
+		----------------------------------------------------------------------------
+	*/
+	float focusStart = ssfx_wpn_dof_1.x;
+	float focusEnd = ssfx_wpn_dof_1.y;
+	float3 lensProperty = float3(ssfx_wpn_dof_1.z, focusEnd - focusStart, ssfx_wpn_dof_1.w);
 	float coc = CalculateCoC(pos.z, lensProperty.x, lensProperty.y, lensProperty.z);
+
+//  --------------------------------------------------------------------------------
+//                              Background Bokeh DoF
+//  --------------------------------------------------------------------------------
+	float3 blurBackground = 0;
+	float blurBackgroundWeight = 0;
+	float highlightGain = saturate(INSPECT_DOF_HIGHLIGHT_GAIN);
 	float2 radiusToUse = (1 / float2(3840, 2160)) * INSPECT_DOF_RADIUS * lensProperty.z;
 
-	float3 blurBackground = 0;
 	float weight = 0;
 	[unroll]
 	for (int i = 0; i < SampleCount; i++)
@@ -40,15 +52,13 @@ float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 	}
 	blurBackground *= 1 / (weight + (weight == 0));
 	blurBackground = CorrectForWhiteAccentuation(blurBackground, GammaFactor, highlightGain);
+	blurBackgroundWeight = saturate(smoothstep(0.1f, 1.0f, coc) + int(pos.z <= SKY_EPS)) * lensProperty.x;
 
-/*  ---------------------
-	Foreground DoF.
-	---------------------
-*/
+//  --------------------------------------------------------------------------------
+//                                  Foreground DoF
+//  --------------------------------------------------------------------------------
 	// Use Depth to adjust blur intensity
-	float blurAmountForeground = lerp(ssfx_wpn_dof_1.w, 0, smoothstep(ssfx_wpn_dof_1.x, ssfx_wpn_dof_1.y, pos.z ) );	
-	blurAmountForeground *= pos.z > SKY_EPS; // Don't apply to the sky ( Sky depth = float(0.001) )
-
+	float blurAmountForeground = lerp(lensProperty.z, 0, smoothstep(focusStart, focusEnd, pos.z)) * (pos.z > SKY_EPS);
 	float edgeBlur = 0;
 
 	// Peripheral vision blur
@@ -58,7 +68,7 @@ float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 		float2 mid_uv = tc - float2(0.5f, 0.5f);
  		edgeBlur = pow(smoothstep(0.0f, saturate(1.0f - ssfx_wpn_dof_2), length(mid_uv)), 1.5f) * 1.33f;
 
-		blurAmountForeground = saturate(blurAmountForeground + edgeBlur) * ssfx_wpn_dof_1.w;
+		blurAmountForeground = saturate(blurAmountForeground + edgeBlur) * lensProperty.z;
 	}
 
 	// Close blur ( Weapon blur ) 
@@ -98,10 +108,13 @@ float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 		image = lerp(image, blurBackground, saturate(0.4f - (1.0f - edgeBlur)));
 	}
 	
+//  --------------------------------------------------------------------------------
+//                            Background/Foreground Mix
+//  --------------------------------------------------------------------------------
 	// Far blur ( Reload, Inventory and PDA )
-	if (ssfx_wpn_dof_1.z > 0)
+	if (lensProperty.x > 0)
 	{
-		image = lerp(image, blurBackground, saturate(smoothstep(0.1f, 1.0f, coc) + int(pos.z <= SKY_EPS)) * ssfx_wpn_dof_1.z);
+		image = lerp(image, blurBackground, blurBackgroundWeight);
 	}
 
 	return float4(image, coc);
