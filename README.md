@@ -20,7 +20,6 @@ Depending on the weapon packs you use, <u>some weapons might not provide a suita
 See [Changelogs](/CHANGELOG.md).
 
 ### Current limits:
-- Requires Screen Space Shaders as this addon needs to call SSS' weapon DoF command.
 - DOF's fade start/length are not customizable at the moment.
 - In-game UI doesn't have fade in/out animation when inspection starts/ends.
 
@@ -28,4 +27,3 @@ See [Changelogs](/CHANGELOG.md).
 - [fsttime](https://www.moddb.com/members/fsttime) - Author of the original addon
 - [artifax](https://www.moddb.com/members/artifax) - Original weapon inspection logics
 - [Ascii1457](https://www.moddb.com/members/ascii1457) - SSS and DoF scripting logics
-- [IndieSunpraiser](https://www.moddb.com/members/indiesunpraiser) - NVG DoF shader code
