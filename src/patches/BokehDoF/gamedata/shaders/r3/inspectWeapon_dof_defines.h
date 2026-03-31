@@ -4,11 +4,6 @@
 #define INSPECT_DOF
 #endif
 
-// Scuffed way to detect Beef's NVG.
-#if defined(gen_1_nvg_noise_factor) || defined(gen_2_nvg_noise_factor) || defined(gen_3_nvg_noise_factor)
-#define BEEFS_NVG
-#endif
-
 static const float3 LumaCoeff = float3(0.299f, 0.587f, 0.114f);
 static const float GammaFactor = 2.2f;
 

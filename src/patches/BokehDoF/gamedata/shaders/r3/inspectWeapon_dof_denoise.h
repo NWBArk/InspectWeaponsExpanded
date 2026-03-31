@@ -44,7 +44,7 @@ float3 Inspect_DOF_Denoise(float2 tc, float4 dof)
     // Same mix logic as the main DoF pass.
     float coc = dof.a;
     float depth = GetDepth(tc, 0);
-    filtered = lerp(dof, filtered, saturate(smoothstep(0.1f, 1.0f, coc) + int(depth <= SKY_EPS)) * ssfx_wpn_dof_1.z);
+    filtered = lerp(dof.rgb, filtered, saturate(smoothstep(0.1f, 1.0f, coc) + int(depth <= SKY_EPS)) * ssfx_wpn_dof_1.z);
 
     return filtered;
 }

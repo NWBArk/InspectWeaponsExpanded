@@ -1,21 +1,16 @@
 #include "common.h"
 #include "inspectWeapon_dof.h"
 
-uniform float4 shader_param_8;
-
 float4 main(p_screen I) : SV_TARGET
 {
-	float3 P = GetViewSpacePosition(I.tc0, 0);
 	float3 img = s_image.Sample(smp_nofilter, I.tc0).rgb;
-
-	int nvgGeneration = 0;
-#ifdef BEEFS_NVG
-	nvgGeneration = (int)(clamp(floor(shader_param_8.x), 0.0f, 3.0f));
-#endif
-
+	float3 P = GetPosition(I.tc0, 0);
 #ifdef INSPECT_DOF
-		return Inspect_DOF(I.tc0, P, img, nvgGeneration);
-#else
-		return float4(img, 1.0);
+	if (!IsUsingNVG())
+	{
+		// Only calculate DoF when NVG is not on.
+		return Inspect_DOF(I.tc0, P, img);
+	}
 #endif
+	return float4(img, 1.0f);
 }

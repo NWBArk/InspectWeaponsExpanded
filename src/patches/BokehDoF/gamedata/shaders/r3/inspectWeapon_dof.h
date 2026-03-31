@@ -1,16 +1,18 @@
 #include "inspectWeapon_dof_settings.h"
 #include "inspectWeapon_dof_utils.h"
 
+uniform float4 ssfx_wpn_dof_1;
+uniform float ssfx_wpn_dof_2;
+
 /**
 	@brief Calculates Depth of Field.
 
 	@param tc TexCoord.
 	@param pos Position, xy: viewspace position, z: depth.
 	@param image Buffer color.
-	@param nvgGeneration Generation of Night-Vision Goggle. 0 means NVG is not used.
 	@return float4, rgb: pixel color, a: coc.
 */
-float4 Inspect_DOF(float2 tc, float3 pos, float3 image, int nvgGeneration)
+float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 {
 	/*  ----------------------------------------------------------------------------
 		ssfx_wpn_dof_1:
@@ -23,43 +25,40 @@ float4 Inspect_DOF(float2 tc, float3 pos, float3 image, int nvgGeneration)
 	float focusStart = ssfx_wpn_dof_1.x;
 	float focusEnd = ssfx_wpn_dof_1.y;
 	float3 lensProperty = float3(ssfx_wpn_dof_1.z, focusEnd - focusStart, ssfx_wpn_dof_1.w);
-	float3 blurBackground = 0;
+	float coc = CalculateCoC(pos.z, lensProperty.x, lensProperty.y, lensProperty.z);
 
 //  --------------------------------------------------------------------------------
 //                              Background Bokeh DoF
 //  --------------------------------------------------------------------------------
-	if (nvgGeneration == 0)
+	float3 blurBackground = 0;
+	float blurBackgroundWeight = 0;
+	float highlightGain = saturate(INSPECT_DOF_HIGHLIGHT_GAIN);
+	float2 radiusToUse = (1 / float2(3840, 2160)) * INSPECT_DOF_RADIUS * lensProperty.z;
+
+	float weight = 0;
+	[unroll]
+	for (int i = 0; i < SampleCount; i++)
 	{
-		float highlightGain = saturate(INSPECT_DOF_HIGHLIGHT_GAIN);
-		float coc = CalculateCoC(pos.z, lensProperty.x, lensProperty.y, lensProperty.z);
-		float2 radiusToUse = (1 / float2(3840, 2160)) * INSPECT_DOF_RADIUS * lensProperty.z;
+		// Adjust offset based on radius and screen resolution.
+		float2 offset = Kernel[i] * radiusToUse;
+		float4 sample = s_image.SampleLevel(smp_nofilter, tc + offset, 0);
 
-		float weight = 0;
-		[unroll]
-		for (int i = 0; i < SampleCount; i++)
-		{
-			// Adjust offset based on radius and screen resolution.
-			float2 offset = Kernel[i] * radiusToUse;
-			float4 sample = s_image.SampleLevel(smp_nofilter, tc + offset, 0);
+		float3 sampleColor = AccentuateWhites(sample.rgb, GammaFactor, highlightGain);
+		// Apply sample weighting based on CoC.
+		float sampleWeight = SampleWeightFromCoC(max(0, min(sample.a, coc)), length(offset));
 
-			float3 sampleColor = AccentuateWhites(sample.rgb, GammaFactor, highlightGain);
-			// Apply sample weighting based on CoC.
-			float sampleWeight = SampleWeightFromCoC(max(0, min(sample.a, coc)), length(offset));
-
-			blurBackground += sampleColor;
-			weight += sampleWeight;
-		}
-		blurBackground *= 1 / (weight + (weight == 0));
-		blurBackground = CorrectForWhiteAccentuation(blurBackground, GammaFactor, highlightGain);
+		blurBackground += sampleColor;
+		weight += sampleWeight;
 	}
+	blurBackground *= 1 / (weight + (weight == 0));
+	blurBackground = CorrectForWhiteAccentuation(blurBackground, GammaFactor, highlightGain);
+	blurBackgroundWeight = saturate(smoothstep(0.1f, 1.0f, coc) + int(pos.z <= SKY_EPS)) * lensProperty.x;
 
 //  --------------------------------------------------------------------------------
 //                                  Foreground DoF
 //  --------------------------------------------------------------------------------
 	// Use Depth to adjust blur intensity
-	float blurAmountForeground = lerp(lensProperty.z, 0, smoothstep(focusStart, focusEnd, pos.z));	
-	blurAmountForeground *= pos.z > SKY_EPS; // Don't apply to the sky ( Sky depth = float(0.001) )
-
+	float blurAmountForeground = lerp(lensProperty.z, 0, smoothstep(focusStart, focusEnd, pos.z)) * (pos.z > SKY_EPS);
 	float edgeBlur = 0;
 
 	// Peripheral vision blur
@@ -115,7 +114,7 @@ float4 Inspect_DOF(float2 tc, float3 pos, float3 image, int nvgGeneration)
 	// Far blur ( Reload, Inventory and PDA )
 	if (lensProperty.x > 0)
 	{
-		image = lerp(image, blurBackground, saturate(smoothstep(0.1f, 1.0f, coc) + int(pos.z <= SKY_EPS)) * lensProperty.x);
+		image = lerp(image, blurBackground, blurBackgroundWeight);
 	}
 
 	return float4(image, coc);

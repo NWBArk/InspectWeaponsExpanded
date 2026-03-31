@@ -1,6 +1,14 @@
+#include "common.h"
 #include "inspectWeapon_dof_defines.h"
 
-float4 GetViewSpacePosition(float2 tc, uint iSample : SV_SAMPLEINDEX)
+uniform float4 shader_param_8;
+
+bool IsUsingNVG()
+{
+	return floor(shader_param_8.x) > 0.0f;
+}
+
+float4 GetPosition(float2 tc, uint iSample : SV_SAMPLEINDEX)
 {
 #ifndef USE_MSAA
 	return s_position.SampleLevel(smp_nofilter, tc, 0);
@@ -11,7 +19,7 @@ float4 GetViewSpacePosition(float2 tc, uint iSample : SV_SAMPLEINDEX)
 
 float GetDepth(float2 tc, uint iSample: SV_SAMPLEINDEX)
 {
-    return GetViewSpacePosition(tc, iSample).z;
+    return GetPosition(tc, iSample).z;
 }
 
 float GetLuminance(float3 fragment)
