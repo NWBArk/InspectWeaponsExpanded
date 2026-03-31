@@ -1,5 +1,5 @@
 ### v1.10
-- Decoupled DoF shader from Screen Space Shaders addon.
+- Decoupled from Screen Space Shaders addon.
 ### v1.9
 - Improved Bokeh DoF quality.
     - Added denoising pass to DoF so the final image will be way less noisy.
