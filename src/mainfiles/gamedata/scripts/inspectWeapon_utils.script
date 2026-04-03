@@ -23,19 +23,19 @@ function string_starts_with(str, sub_str)
 	return begin and begin == 1
 end
 
-function smooth_value(value_table)
+function smooth_value(from, to)
 	local smoothing = math.min(0.1 * device.time_delta / 20, 0.19)
 
-	if value_table.from < value_table.to then
-		value_table.from = value_table.from + smoothing
+	if from < to then
+		from = from + smoothing
 	else
-		value_table.from = value_table.from - smoothing
+		from = from - smoothing
 	end
 
-	if math.abs(value_table.from - value_table.to) <= 0.1 then
-		value_table.from = value_table.to
+	if math.abs(from - to) <= 0.1 then
+		from = to
 	end
-	return value_table.from
+	return from
 end
 
 function clear_table(table_to_clear)
