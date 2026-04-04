@@ -1,3 +1,8 @@
+### v1.11
+- Improved DoF transition smoothing when inspect animation start/ends.
+    - Added easing functions to control the DoF blur radius and focus distance curve.
+- Fixed an issue where if user uses Screen Space Shader's "Weapon DOF" module, its weapon DoF settings will be reset after weapon inspection is triggered.
+- Minor improvements to Bokeh DoF shader.
 ### v1.10
 - Decoupled from Screen Space Shaders addon.
 ### v1.9
