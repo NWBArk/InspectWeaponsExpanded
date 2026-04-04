@@ -25,7 +25,6 @@ float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 	float focusStart = ssfx_wpn_dof_1.x;
 	float focusEnd = ssfx_wpn_dof_1.y;
 	float3 lensProperty = float3(ssfx_wpn_dof_1.z, focusEnd - focusStart, ssfx_wpn_dof_1.w);
-	float coc = CalculateCoC(pos.z, lensProperty.x, lensProperty.y, lensProperty.z);
 
 //  --------------------------------------------------------------------------------
 //                              Background Bokeh DoF
@@ -34,6 +33,7 @@ float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 	float blurBackgroundWeight = 0;
 	float highlightGain = saturate(INSPECT_DOF_HIGHLIGHT_GAIN);
 	float2 radiusToUse = (1 / float2(3840, 2160)) * INSPECT_DOF_RADIUS * lensProperty.z;
+	float coc = CalculateCoC(pos.z, lensProperty.x, lensProperty.y, lensProperty.z);
 
 	float weight = 0;
 	[unroll]
@@ -41,13 +41,12 @@ float4 Inspect_DOF(float2 tc, float3 pos, float3 image)
 	{
 		// Adjust offset based on radius and screen resolution.
 		float2 offset = Kernel[i] * radiusToUse;
-		float4 sample = s_image.SampleLevel(smp_nofilter, tc + offset, 0);
-
-		float3 sampleColor = AccentuateWhites(sample.rgb, GammaFactor, highlightGain);
+		float3 sampleColor = AccentuateWhites(s_image.SampleLevel(smp_nofilter, tc + offset, 0).rgb, GammaFactor, highlightGain);
+		float sampleCoc = CalculateCoC(GetDepth(tc + offset, 0), lensProperty.x, lensProperty.y, lensProperty.z);
 		// Apply sample weighting based on CoC.
-		float sampleWeight = SampleWeightFromCoC(max(0, min(sample.a, coc)), length(offset));
+		float sampleWeight = SampleWeightFromCoC(max(0, min(sampleCoc, coc)), length(offset));
 
-		blurBackground += sampleColor;
+		blurBackground += sampleColor * sampleWeight;
 		weight += sampleWeight;
 	}
 	blurBackground *= 1 / (weight + (weight == 0));

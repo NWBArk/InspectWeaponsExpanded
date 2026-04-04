@@ -1,30 +1,45 @@
 local inspect_utils = inspectWeapon_utils
 local console = get_console()
 
-local inspect_dof_blur = { from = 0.0, to = 0.0 }
+local inspect_dof_value = inspect_utils.value_smoother.new(0.0, 0.0, 1.0)
+local weapon_dof_original_values = ""
 
-local function inspect_change_ssfx_dof()
-	local smoothed_dof = inspect_utils.smooth_value(inspect_dof_blur)
-
-	inspect_set_ssfx_dof(0.15, 0.25, smoothed_dof, 1)
-	if smoothed_dof == inspect_dof_blur.to then
-		UnregisterScriptCallback("actor_on_update", inspect_change_ssfx_dof)
+local function inspect_update_dof()
+	local smoothed_dof = inspect_dof_value:update()
+	inspect_update_dof_values(0.15, 0.25, smoothed_dof, smoothed_dof)
+	if inspect_dof_value.reached_end then
+		UnregisterScriptCallback("actor_on_update", inspect_update_dof)
+		inspect_dof_value:reset()
+		inspect_dof_value:swap_direction()
 	end
 end
 
-function inspect_remove_ssfx_dof()
-	RemoveTimeEvent(0, "inspect_remove_ssfx_dof")
-	inspect_set_ssfx_dof_blur(0)
+function inspect_add_dof(duration)
+	weapon_dof_original_values = console:get_string("ssfx_wpn_dof_1")
+	UnregisterScriptCallback("actor_on_update", inspect_update_dof)
+	inspect_dof_value.from = 0.0
+	inspect_dof_value.to = 1.0
+	inspect_dof_value.duration = duration
+	inspect_dof_value:set_easing_function("out_quadratic")
+	RegisterScriptCallback("actor_on_update", inspect_update_dof)
 end
 
-function inspect_set_ssfx_dof(fade_start, fade_length, blur, intensity)
-	console:execute("ssfx_wpn_dof_1 (" .. fade_start .. "," .. fade_length .. "," .. blur .. "," .. intensity .. ")")
+function inspect_remove_dof(duration)
+	RemoveTimeEvent(0, "inspect_remove_dof")
+	UnregisterScriptCallback("actor_on_update", inspect_update_dof)
+	inspect_dof_value.from = 1.0
+	inspect_dof_value.to = 0.0
+	inspect_dof_value.duration = duration
+	inspect_dof_value:set_easing_function("out_quadratic")
+	RegisterScriptCallback("actor_on_update", inspect_update_dof)
+	CreateTimeEvent(0, "inspect_restore_original_dof_values", duration, inspect_restore_original_dof_values)
 end
 
-function inspect_set_ssfx_dof_blur(value)
-	if inspect_dof_blur.to ~= value then 
-		UnregisterScriptCallback("actor_on_update", inspect_change_ssfx_dof)
-		inspect_dof_blur.to = value
-		RegisterScriptCallback("actor_on_update", inspect_change_ssfx_dof)
-	end
+function inspect_update_dof_values(min_focus_length, max_focus_length, focus_distance, blur_amount)
+	console:execute("ssfx_wpn_dof_1 (" .. min_focus_length .. "," .. max_focus_length .. "," .. focus_distance .. "," .. blur_amount .. ")")
+end
+
+function inspect_restore_original_dof_values()
+	RemoveTimeEvent(0, "inspect_restore_original_dof_values")
+	console:execute("ssfx_wpn_dof_1 " .. weapon_dof_original_values)
 end
