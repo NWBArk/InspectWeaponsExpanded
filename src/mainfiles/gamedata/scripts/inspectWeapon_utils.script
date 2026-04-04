@@ -1,5 +1,71 @@
 local device = device()
 
+-- region Easing and value smoothing
+local easing_functions = 
+{
+	in_sine = function(x) return 1 - math.cos(x * math.pi / 2) end,
+	out_sine = function(x) return math.sin(x * math.pi / 2) end,
+	in_out_sine = function(x) return (1 - math.cos(math.pi * x)) / 2 end,
+	in_quadratic = function(x) return x * x end,
+	out_quadratic = function(x) return x * (2 - x) end,
+	in_out_quadratic = function(x) if x < 0.5 then return 2 * x * x else return 1 - math.pow(-2 * x + 2, 2) / 2 end end
+}
+
+value_smoother = {}
+value_smoother.__index = value_smoother
+function value_smoother.new(from, to, duration)
+	local self = setmetatable({}, value_smoother)
+	self.from = from
+	self.to = to
+	self.current = from
+	self.duration = duration
+	self.elapsed = 0.0
+	self.reached_end = false
+	self.easing_function = "in_out_sine"
+	return self
+end
+
+function value_smoother:update()
+	self.elapsed = self.elapsed + (device.time_delta * 0.001)
+	local t = math.min(self.elapsed / self.duration, 1.0)
+	local eased = self.easing_function(t)
+	self.current = self.from + (self.to - self.from) * eased
+
+	if t == 1.0 then
+		self.current = self.to
+		self.reached_end = true
+	end
+
+	return self.current
+end
+
+function value_smoother:reset()
+	self.elapsed = 0.0
+	self.reached_end = false
+end
+
+function value_smoother:swap_direction()
+	local temp = self.from
+	self.from = self.to
+	self.to = temp
+end
+
+function value_smoother:set_easing_function(function_name_or_impl)
+	if type(function_name_or_impl) == "function" then
+		self.easing_function = function_name_or_impl
+		return
+	end
+
+	if type(function_name_or_impl) ~= "string" or string_is_nil_or_empty(function_name_or_impl) then
+		self.easing_function = easing_functions.in_out_sine
+		return
+	end
+
+	self.easing_function = easing_functions[function_name_or_impl] or easing_functions.in_out_sine
+end
+-- endregion
+
+-- region Strings
 function string_is_nil_or_empty(str)
 	if str == nil or #str == 0 then
 		return true
@@ -22,22 +88,9 @@ function string_starts_with(str, sub_str)
 	local begin = string.find(str, sub_str)
 	return begin and begin == 1
 end
+-- endregion
 
-function smooth_value(from, to)
-	local smoothing = math.min(0.1 * device.time_delta / 20, 0.19)
-
-	if from < to then
-		from = from + smoothing
-	else
-		from = from - smoothing
-	end
-
-	if math.abs(from - to) <= 0.1 then
-		from = to
-	end
-	return from
-end
-
+-- region Tables
 function clear_table(table_to_clear)
 	if table_to_clear == nil or size_table(table_to_clear) == 0 then
 		return
@@ -47,7 +100,9 @@ function clear_table(table_to_clear)
 		rawset(table_to_clear, k, nil)
 	end
 end
+-- endregion
 
+-- region Colors
 function int_to_rgba(i)
 	if not (i and type(i) == "number") then 
 		return 
@@ -64,6 +119,7 @@ end
 function get_argb(a, r, g, b, def_a, def_r, def_g, def_b)
     return GetARGB(tonumber(a or def_a) or 255, tonumber(r or def_r) or 255, tonumber(g or def_g) or 255, tonumber(b or def_b) or 255)
 end
+-- endregion
 
 function has_animation(section, animation)
 	if string_is_nil_or_empty(section) or string_is_nil_or_empty(animation) then

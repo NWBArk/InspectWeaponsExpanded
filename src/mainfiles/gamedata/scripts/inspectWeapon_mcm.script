@@ -31,7 +31,7 @@ local function inspect_check_interruption(weapon)
 	end
 
 	if weapon ~= nil and weapon:get_state() ~= 0 then 
-		inspect_dof.inspect_remove_dof()
+		inspect_dof.inspect_remove_dof(0.01)
 		inspect_ui.inspect_show_ui()
 		inspect_unset_state()
 	end
@@ -98,8 +98,9 @@ function inspect_weapon()
 		if inspect_duration > 100 then
 			if inspect_options.enable_dof then 
 				local inspect_remove_dof_delay = inspect_duration * 0.0008
-				inspect_dof.inspect_add_dof(1)
-				CreateTimeEvent(0, "inspect_remove_dof", inspect_remove_dof_delay, inspect_dof.inspect_remove_dof)
+				local inspect_dof_transition_duration = inspect_duration * 0.00015
+				inspect_dof.inspect_add_dof(inspect_dof_transition_duration)
+				CreateTimeEvent(0, "inspect_remove_dof", inspect_remove_dof_delay, inspect_dof.inspect_remove_dof, inspect_dof_transition_duration)
 			end
 
 			if inspect_options.remove_ui then
@@ -172,12 +173,13 @@ local function on_console_execute(command)
 	end
 
 	--[[
-		When user quits/closes game or loads last save, restore original UI state.
+		When user quits/closes game or loads last save, restore original UI and DoF state.
 		No need to handle new game starts because if user choose to start a new game when a save is loaded already,
 		game will disconnect first, thus restoring the UI state.
 	--]]
 	if command == "quit" or command == "disconnect" or command == "load_last_save" then
 		inspect_ui.inspect_show_ui()
+		inspect_dof.inspect_restore_original_dof_values()
 	end
 end
 
