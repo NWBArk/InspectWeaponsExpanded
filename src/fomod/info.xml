@@ -1,7 +1,7 @@
 ﻿<fomod> 
 	<Name>Inspect Weapons Expanded</Name> 
 	<Author>NWBArk2020, fsttime</Author> 
-	<Version>1.11</Version> 
+	<Version>1.12</Version> 
 	<Description>An expanded version based on fsttime's original Inspect Weapon addon for STALKER Anomaly.
 Original addon: Inspect Weapon, and Inspect weapon for FireModeCheck - fsttime [https://www.moddb.com/mods/stalker-anomaly/addons/mcminspect-weapon]
 
@@ -10,7 +10,7 @@ Added feature:
 * High quality Depth of Field effect: Choose whether to enable high quality Bokeh DoF during the animation or not.
 * Hide in-game UI during inspection: Choose whether to hide in-game UI or not during weapon inspection.
 
-This addon depends on Ascii1457's Screen Space Shaders, make sure you've installed it first.
-Screen Space Shaders - Ascii1457 [https://www.moddb.com/mods/stalker-anomaly/addons/screen-space-shaders]
+This addon depends on the the latest version of Modded Exe.
+Anomaly Modded Exe [https://github.com/themrdemonized/xray-monolith]
 </Description> 
 </fomod> 
