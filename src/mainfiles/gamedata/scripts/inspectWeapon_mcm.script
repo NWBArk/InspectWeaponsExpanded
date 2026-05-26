@@ -8,7 +8,9 @@ local inspect_options =
 	key_input_mode,
 	enable_dof,
 	remove_ui,
-	disable_idle_animation
+	disable_idle_animation,
+	use_ammo_check_animation,
+	ammo_check_chance
 }
 
 local inspect_animations = 
@@ -67,8 +69,9 @@ function inspect_select_animation(weapon_section, has_grenade_launcher)
 	elseif inspect_animations.ammo_check.exists and not inspect_animations.idle.exists then
 		return inspect_animations.ammo_check.name
 	else
-		-- Ammo check animation has 33% chance to trigger.
-		return math.random(100) <= 33 and inspect_animations.ammo_check.name or inspect_animations.idle.name
+		return inspect_options.ammo_check_chance > 0 and 
+			math.random(100) <= inspect_options.ammo_check_chance and 
+			inspect_animations.ammo_check.name or inspect_animations.idle.name
 	end
 end
 
@@ -112,21 +115,69 @@ function inspect_weapon()
 	end
 end
 
+local ammo_check_chance_track_handlers
+local show_ammo_check_chance_track
+
+local function set_ammo_check_chance_track_visibility(should_show)
+	if ammo_check_chance_track_handlers == nil then
+		return
+	end
+
+	ammo_check_chance_track_handlers.ctrl:Show(should_show)
+	ammo_check_chance_track_handlers.txt:Show(should_show)
+	ammo_check_chance_track_handlers.cap:Show(should_show)
+end
+
 --region Event handlers
+local function enable_ammo_check_animation_on_selection(path, option, value, attributes)
+	set_ammo_check_chance_track_visibility(value)
+end
+
+local function enable_ammo_check_ui_hook(anchor, handlers, attributes, flags)
+	local value = ui_mcm.get("inspectWeapon/useAmmoCheckAnimation")
+	set_ammo_check_chance_track_visibility(value)
+end
+
+local function ammo_check_chance_track_ui_hook(anchor, handlers, attributes, flags)
+	if handlers == nil then
+		return
+	end
+
+	ammo_check_chance_track_handlers = handlers
+	local value = ui_mcm.get("inspectWeapon/ammoCheckChance")
+	ammo_check_chance_track_handlers.txt:SetText(value .. "%")
+end
+
+local function ammo_check_chance_track_on_selection(path, option, value, attributes)
+	if ammo_check_chance_track_handlers.txt == nil then
+		return
+	end
+
+	ammo_check_chance_track_handlers.txt:SetText(value .. "%")
+end
+
 function on_mcm_load()
 	local options = 
 	{
 		id = "inspectWeapon", sh = true,
 		gr = 
 		{
-			{ id = "inspectWeapon", type = "slide", link = "ui_options_slider_disguise", text = "ui_mcm_menu_inspectWeapon", size = {512,50}, spacing = 20 },
+			{ id = "inspectWeapon", type = "slide", link = "ui_options_slider_disguise", text = "ui_mcm_menu_inspectWeapon", size = { 512,50 }, spacing = 20 },
 			{ id = "keybind", type = "key_bind", val = 2, def = DIK_keys.DIK_R },
 			{ id = "keyInputMode", type = ui_mcm.kb_mod_radio, val = 2, def = 2, text = "ui_mcm_inspectWeapon_keyInputMode", 
-				content = {{0, "mcm_kb_mode_press"}, {1, "mcm_kb_mode_dtap"}, {2, "mcm_kb_mode_hold"}}
+				content = { { 0, "mcm_kb_mode_press" }, { 1, "mcm_kb_mode_dtap" }, { 2, "mcm_kb_mode_hold" } }
 			},
 			{ id = "inspectDoF", type = "check", val = 1, def = true, text = "ui_mcm_inspectWeapon_inspectDoF" },
 			{ id = "inspectRemoveUI", type = "check", val = 1, def = true, text = "ui_mcm_inspectWeapon_inspectRemoveUI" },
-			{ id = "disableIdleAnimation", type = "check", val = 1, def = true, text = "ui_mcm_inspectWeapon_disableIdleAnimation" }
+			{ id = "disableIdleAnimation", type = "check", val = 1, def = true, text = "ui_mcm_inspectWeapon_disableIdleAnimation" },
+			{ id = "useAmmoCheckAnimation", type = "check", val = 1, def = true, text = "ui_mcm_inspectWeapon_useAmmoCheckAnimation",
+				on_selection_functor = { enable_ammo_check_animation_on_selection },
+				ui_hook_functor = { enable_ammo_check_ui_hook }
+			},
+			{ id = "ammoCheckChance", type = "track", val = 2, def = 33, min = 0, max = 100, step = 1, text = "ui_mcm_inspectWeapon_ammoCheckChance",
+				on_selection_functor = { ammo_check_chance_track_on_selection },
+				ui_hook_functor = { ammo_check_chance_track_ui_hook }
+			}
 		}
 	}
 	return options
@@ -139,6 +190,14 @@ function on_option_change(mcm)
 		inspect_options.enable_dof = ui_mcm.get("inspectWeapon/inspectDoF")
 		inspect_options.remove_ui = ui_mcm.get("inspectWeapon/inspectRemoveUI")
 		inspect_options.disable_idle_animation = ui_mcm.get("inspectWeapon/disableIdleAnimation")
+		inspect_options.use_ammo_check_animation = ui_mcm.get("inspectWeapon/useAmmoCheckAnimation")
+
+		if inspect_options.use_ammo_check_animation then
+			inspect_options.ammo_check_chance = ui_mcm.get("inspectWeapon/ammoCheckChance")
+		else
+			inspect_options.ammo_check_chance = 0
+		end
+		printf("Ammo check trigger chance: %s", inspect_options.ammo_check_chance)
     end
 end
 
