@@ -1,3 +1,8 @@
+### v1.12
+- Added "Include Weapon Ammo Check Animation" option in MCM.
+    - When enabled, only then will ammo check animations have a chance play during weapon inspection.
+- Added "Chance To Play Weapon Ammo Check Animation" option in MCM.
+- Refactored script.
 ### v1.11
 - Improved DoF transition smoothing when inspect animation start/ends.
     - Added easing functions to control the DoF blur radius and focus distance curve.
