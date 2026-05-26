@@ -19,7 +19,7 @@
 		<text>Remove Weapon Idle Animation</text>
 	</string>
 	<string id="ui_mcm_inspectWeapon_disableIdleAnimation_desc">
-		<text>When enabled, game won't automatically start weapon idle animation when player is idling for too long.</text>
+		<text>When enabled, game won't automatically play weapon idle animation when player is idling for too long.</text>
 	</string>
 	<string id="ui_mcm_inspectWeapon_useAmmoCheckAnimation">
 		<text>Include Weapon Ammo Check Animation</text>
